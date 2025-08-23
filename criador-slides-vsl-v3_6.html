@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Criador de Slides VSL – Reels & Deck (v3.6)</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;600;800&family=Montserrat:wght@400;700&family=Poppins:wght@400;700&family=Roboto:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      /* Colors */
+      --bg1:#0b0c10; --bg2:#12131a; --panel:#14151c; --text:#f6f7f9; --muted:#b7bac5;
+      --stroke-08:rgba(255,255,255,.08);
+      /* Layout */
+      --sidebar:380px;
+      /* Slide content */
+      --slide-pad:24px; --font-size:24px; --line-height:1.25;
+      --content-width:82%; --v-offset:0px;
+      /* Fonts */
+      --ui-font: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+      --content-font: 'Bebas Neue', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      /* CTA */
+      --cta:#27d17f; --cta-press:#1fb270; --cta-size:28px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--text);
+      font-family: var(--ui-font);
+      background: radial-gradient(1200px 800px at 20% -10%, #1a1b26 0%, #101116 60%) fixed,
+                  linear-gradient(160deg, var(--bg1), var(--bg2)) fixed;
+    }
+    .app{height:100%; display:grid; grid-template-columns: minmax(300px, var(--sidebar)) 1fr; gap:20px; padding:16px}
+    /* Sidebar */
+    .sidebar{display:flex; flex-direction:column; gap:12px; background:rgba(255,255,255,.02); border:1px solid var(--stroke-08); border-radius:16px; padding:14px; max-height: calc(100vh - 32px); overflow:auto; box-shadow:0 10px 30px rgba(0,0,0,.35); font-family: var(--ui-font)}
+    .sidebar h2{margin:0; font-size:18px}
+    .help{color:var(--muted); font-size:12px; line-height:1.45}
+    textarea{width:100%; height:30vh; resize:vertical; background:#0f1015; color:var(--text); border:1px solid var(--stroke-08); border-radius:12px; padding:12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:14px; line-height:1.35; outline:none}
+    .controls{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    .control{background:rgba(255,255,255,.02); border:1px solid var(--stroke-08); border-radius:12px; padding:10px}
+    .control label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px}
+    select, input[type="text"]{width:100%; background:#0f1015; color:var(--text); border:1px solid var(--stroke-08); border-radius:10px; padding:8px; font-size:14px; font-family: var(--ui-font)}
+    input[type=range]{width:100%}
+    .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .small{font-size:11px; color:var(--muted)}
+    /* Stage */
+    .stage{display:grid; place-items:center; min-height:calc(100vh - 32px)}
+    .viewer{display:grid; grid-template-columns:auto max-content auto; grid-template-rows:auto auto; align-items:center; justify-items:center; gap:18px; width:100%}
+    /* Slide */
+    .reel{background: var(--panel); border-radius:28px; box-shadow: 0 20px 60px rgba(0,0,0,.55), 0 0 0 1px var(--stroke-08) inset; position:relative; display:flex; align-items:center; justify-content:center; padding: var(--slide-pad); width: 360px; height: 640px}
+    .slide-shell{width: var(--content-width); height: 100%; display:flex; align-items:center; justify-content:center}
+    .slide-text{width:100%; white-space:pre-wrap; overflow-wrap:anywhere; text-align:center; font-family: var(--content-font); font-size: var(--font-size); line-height: var(--line-height); transform: translateY(var(--v-offset)); transition: transform .12s ease-out}
+    .ghost{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:18px; pointer-events:none}
+    .nav{width:56px; height:56px; display:grid; place-items:center; border-radius:14px; background:rgba(255,255,255,.06); border:1px solid var(--stroke-08); color:#fff; font-size:22px; user-select:none; cursor:pointer; transition:.2s; backdrop-filter:blur(6px); box-shadow:0 8px 24px rgba(0,0,0,.35)}
+    .nav:hover{background:rgba(255,255,255,.1)} .nav:active{transform:scale(.98)}
+    .pager{grid-column:2; grid-row:2; display:flex; justify-content:center; gap:6px}
+    .dot{width:8px; height:8px; border-radius:50%; background:#3d3f4d} .dot.active{background:#fff}
+    /* CTA Button */
+    .cta-wrap{display:flex; width:100%; justify-content:center}
+    .cta-btn{display:inline-block; padding:18px 28px; border-radius:16px; background:var(--cta); color:#071b11; font-weight:800; letter-spacing:.2px; box-shadow:0 10px 24px rgba(39,209,127,.3); text-decoration:none; transition:.15s transform, .15s filter; font-size: var(--cta-size); font-family: var(--content-font)}
+    .cta-btn:hover{filter:brightness(1.03)} .cta-btn:active{transform:translateY(1px); background:var(--cta-press)}
+    @media (max-width:1100px){ .app{grid-template-columns:1fr; gap:14px} .sidebar{order:2} .stage{order:1} .viewer{grid-template-columns:auto max-content auto; gap:12px} .nav{width:48px; height:48px; font-size:20px} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Menu lateral com campos">
+      <h2>Roteiro (1 linha = 1 slide)</h2>
+      <p class="help">Cole seu texto. Cada <strong>quebra de linha</strong> vira um slide. Slides aparecem ao clicar nas setas.</p>
+      <textarea id="scriptInput" placeholder="Exemplo:
+Você não é um mentor preguiçoso.
+O problema não é você. É o marketing complexo.
+Você não precisa de mais. Precisa de menos."></textarea>
+      <div class="controls">
+        <div class="control">
+          <label for="format">Formato</label>
+          <select id="format">
+            <option value="reels" selected>Reels (9:16)</option>
+            <option value="deck">Apresentação 16:9 (1920×1080)</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="fontFamily">Fonte principal (conteúdo)</label>
+          <select id="fontFamily">
+            <option value="'Bebas Neue', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" selected>Bebas Neue (padrão)</option>
+            <option value="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">Inter</option>
+            <option value="Roboto, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif">Roboto</option>
+            <option value="Montserrat, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif">Montserrat</option>
+            <option value="Poppins, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif">Poppins</option>
+            <option value="'Source Sans 3', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif">Source Sans 3</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="fontSize">Tamanho do texto</label>
+          <input id="fontSize" type="range" min="24" max="80" value="24" />
+        </div>
+        <div class="control">
+          <label for="lineHeight">Altura da linha</label>
+          <input id="lineHeight" type="range" min="1.0" max="2.0" step="0.05" value="1.25" />
+        </div>
+        <div class="control">
+          <label for="padding">Margem interna do slide</label>
+          <input id="padding" type="range" min="16" max="96" step="2" value="24" />
+        </div>
+        <div class="control">
+          <label for="contentWidth">Largura do conteúdo (%)</label>
+          <input id="contentWidth" type="range" min="60" max="95" step="1" value="82" />
+        </div>
+        <div class="control">
+          <label for="align">Alinhamento</label>
+          <select id="align">
+            <option value="center" selected>Centralizado</option>
+            <option value="left">À esquerda</option>
+            <option value="right">À direita</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="vOffset">Posição vertical (px)</label>
+          <div class="row">
+            <input id="vOffset" type="range" min="-200" max="200" step="2" value="0" />
+            <span class="small" id="vOffsetValue">0 px</span>
+          </div>
+        </div>
+        <!-- CTA Controls -->
+        <div class="control" style="grid-column:1 / -1">
+          <label>Slide final com CTA</label>
+          <div class="row" style="margin-bottom:8px">
+            <input id="ctaEnable" type="checkbox" /> <span class="small">Ativar slide final com botão</span>
+          </div>
+          <label for="ctaText">Texto do botão</label>
+          <input id="ctaText" type="text" placeholder="Ex.: Fale comigo no WhatsApp" value="Fale comigo no WhatsApp" />
+          <div class="row" style="margin-top:8px">
+            <label class="small" style="min-width:160px">Tamanho do CTA</label>
+            <input id="ctaSize" type="range" min="18" max="56" value="28" />
+          </div>
+        </div>
+      </div>
+      <p class="small">Dica: ← / → para navegar. Salva localmente.</p>
+    </aside>
+    <section class="stage" aria-label="Preview">
+      <div class="viewer">
+        <div class="nav prev" role="button" aria-label="Voltar">⟨</div>
+        <div class="reel" id="reel">
+          <div class="slide-shell">
+            <div class="slide-text" id="slideText"></div>
+          </div>
+          <div class="ghost" id="ghost">Clique em uma seta para iniciar</div>
+        </div>
+        <div class="nav next" role="button" aria-label="Avançar">⟩</div>
+        <div class="pager" id="pager" aria-hidden="true"></div>
+      </div>
+    </section>
+  </div>
+  <script>
+    const $ = (sel)=>document.querySelector(sel);
+    const input = $('#scriptInput');
+    const slideText = $('#slideText');
+    const ghost = $('#ghost');
+    const pager = $('#pager');
+    const reel = $('#reel');
+    const controls = {
+      format: $('#format'),
+      fontFamily: $('#fontFamily'),
+      fontSize: $('#fontSize'),
+      lineHeight: $('#lineHeight'),
+      padding: $('#padding'),
+      contentWidth: $('#contentWidth'),
+      align: $('#align'),
+      vOffset: $('#vOffset'),
+      ctaEnable: $('#ctaEnable'),
+      ctaText: $('#ctaText'),
+      ctaSize: $('#ctaSize'),
+      skipEmpty: {checked:true}
+    };
+    let slides = []; let index = -1;
+    const KEY = 'vsl-slides-v3.6';
+    const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+    if(saved.text) input.value = saved.text;
+    if(saved.cfg){
+      const cfg = saved.cfg;
+      Object.keys(controls).forEach(k=>{
+        const el = controls[k];
+        if(!el || typeof cfg[k]==='undefined') return;
+        if(el.type==='checkbox') el.checked = !!cfg[k];
+        else el.value = cfg[k];
+      });
+    }
+    function save(){
+      const cfg = {};
+      Object.keys(controls).forEach(k=>{ const el = controls[k]; if(!el) return; cfg[k] = el.type==='checkbox' ? el.checked : el.value; });
+      localStorage.setItem(KEY, JSON.stringify({ text: input.value, cfg }));
+    }
+    function buildSlides(){
+      slides = input.value.split(/\n/).filter(s=>s.trim()!=='').map(s=>({type:'text', content:s}));
+      if(controls.ctaEnable.checked){ slides.push({type:'cta', content: controls.ctaText.value.trim() || 'Fale comigo'}); }
+      buildPager();
+      if(index>=slides.length) index = slides.length-1;
+      if(index>=0) render();
+    }
+    function buildPager(){
+      pager.innerHTML = '';
+      slides.forEach((_,i)=>{
+        const d = document.createElement('div');
+        d.className = 'dot' + (i===index? ' active':'');
+        pager.appendChild(d);
+      });
+      pager.setAttribute('aria-hidden', slides.length? 'false':'true');
+      fitCanvas();
+    }
+    function applyStyles(){
+      document.documentElement.style.setProperty('--content-font', controls.fontFamily.value);
+      document.documentElement.style.setProperty('--font-size', controls.fontSize.value+'px');
+      document.documentElement.style.setProperty('--line-height', controls.lineHeight.value);
+      document.documentElement.style.setProperty('--slide-pad', controls.padding.value+'px');
+      document.documentElement.style.setProperty('--content-width', controls.contentWidth.value+'%');
+      document.documentElement.style.setProperty('--cta-size', controls.ctaSize.value+'px');
+      document.documentElement.style.setProperty('--v-offset', controls.vOffset.value+'px');
+      $('#vOffsetValue').textContent = controls.vOffset.value + ' px';
+      slideText.style.textAlign = controls.align.value;
+      fitCanvas();
+    }
+    function render(){
+      if(index < 0 || !slides.length){
+        ghost.style.display = 'flex';
+        slideText.innerHTML = '';
+        buildPager();
+        return;
+      }
+      ghost.style.display = 'none';
+      const s = slides[index];
+      if(s.type === 'cta'){
+        slideText.innerHTML = '<div class="cta-wrap"><a class="cta-btn" href="#" onclick="return false;">' + escapeHtml(s.content) + '</a></div>';
+      }else{
+        slideText.textContent = s.content;
+      }
+      [...pager.children].forEach((el,i)=>{ el.classList.toggle('active', i===index); });
+      fitCanvas();
+    }
+    function escapeHtml(str){ return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
+    function next(){ if(!slides.length){return} index = Math.min(index+1, slides.length-1); render(); }
+    function prev(){ if(!slides.length){return} index = Math.max(index-1, 0); render(); }
+    function fitCanvas(){
+      const format = controls.format.value;
+      const ratio = (format==='deck') ? (16/9) : (9/16);
+      const stage = document.querySelector('.stage');
+      const viewer = document.querySelector('.viewer');
+      const navPrev = document.querySelector('.nav.prev');
+      const navNext = document.querySelector('.nav.next');
+      const navSpace = (navPrev?.offsetWidth || 56) + (navNext?.offsetWidth || 56) + 48;
+      const availW = Math.max(240, viewer.clientWidth - navSpace);
+      const availH = Math.max(240, stage.clientHeight - (pager.offsetHeight || 0) - 36);
+      let w = availW, h = w / ratio;
+      if (h > availH) { h = availH; w = h * ratio; }
+      reel.style.width = w + 'px';
+      reel.style.height = h + 'px';
+    }
+    input.addEventListener('input', ()=>{ save(); buildSlides(); });
+    ['format','fontFamily','fontSize','lineHeight','padding','contentWidth','align','vOffset','ctaEnable','ctaText','ctaSize'].forEach(id=>{
+      const el = controls[id];
+      el.addEventListener(el.type==='checkbox'?'change':'input', ()=>{ applyStyles(); save(); buildSlides(); });
+    });
+    document.querySelector('.nav.next').addEventListener('click', next);
+    document.querySelector('.nav.prev').addEventListener('click', prev);
+    window.addEventListener('keydown', (e)=>{ if(e.key==='ArrowRight') next(); if(e.key==='ArrowLeft') prev(); });
+    window.addEventListener('resize', fitCanvas);
+    applyStyles();
+    buildSlides();
+    window.addEventListener('load', ()=>{ requestAnimationFrame(fitCanvas); });
+  </script>
+</body>
+</html>
