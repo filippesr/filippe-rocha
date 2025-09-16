@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Criador de Sequência – Stories/Carrossel (v3.0)</title>
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Climate+Crisis&family=Notable&family=Poppins:wght@400;500;600;700;900&family=Vina+Sans&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#171717; --fg:#D4D4D4; --muted:#bdbdbd;
+    --panel:#1f1f1f;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font:16px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    color:var(--fg); background:var(--bg);
+    display:grid;
+    grid-template-columns:minmax(360px, 520px) 1fr;
+    grid-template-areas: "controls preview";
+    gap:16px; padding:16px; height:100vh;
+  }
+
+  /* Tabs (visíveis apenas no mobile) */
+  .tabs{display:none; grid-area: tabs;}
+  .tab-btn{flex:1; padding:10px 12px; border-radius:10px; border:1px solid #2a2a2a;
+           background:#222222; color:#eaeaea; font-weight:800; text-align:center}
+  .tab-btn.active{ background:#f5f5f5; color:#111; border-color:#f5f5f5 }
+
+  @media (max-width: 900px){
+    body{
+      grid-template-columns:1fr;
+      grid-template-rows:auto auto 1fr;
+      grid-template-areas: "tabs" "controls" "preview";
+      gap:10px; padding:10px; height:100svh;
+    }
+    .tabs{
+      display:flex; background:#1f1f1f; border:1px solid #2a2a2a; border-radius:12px; padding:6px;
+      position:sticky; top:10px; z-index:6; gap:6px;
+    }
+    /* alternância de painéis por aba */
+    body[data-tab="preview"] #controls{display:none}
+    body[data-tab="ajustes"] .preview-wrap{display:none}
+  }
+
+  /* Painéis */
+  .panel{background:var(--panel); border:1px solid #2a2a2a; border-radius:16px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.35); overflow:auto}
+  #controls{ grid-area: controls; }
+  .preview-wrap{ grid-area: preview; background:#1f1f1f; border:1px solid #2a2a2a; border-radius:16px; padding:12px; box-shadow:0 10px 30px rgba(0,0,0,.35); overflow:auto; height:calc(100vh - 32px);}
+  .panel h2{margin:4px 0 12px; font-size:18px; color:#D4D4D4;}
+
+  /* Custom scrollbar (somente área de ajustes) */
+  #controls{ scrollbar-width: thin; scrollbar-color: #3a3a3a #101010; }
+  #controls::-webkit-scrollbar{ width:12px }
+  #controls::-webkit-scrollbar-track{ background:#101010; border-radius:10px }
+  #controls::-webkit-scrollbar-thumb{
+    background:linear-gradient(180deg,#2a2a2a,#3c3c3c);
+    border-radius:10px; border:2px solid #101010; box-shadow:inset 0 0 0 1px #000;
+  }
+  #controls::-webkit-scrollbar-thumb:hover{ background:linear-gradient(180deg,#3a3a3a,#4a4a4a) }
+
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .row-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px}
+  @media (max-width: 900px){ .row, .row-3{grid-template-columns:1fr} }
+  label{display:block; font-size:14px; color:#9a9a9a; margin:10px 0 8px}
+  input[type=text], textarea, select{
+    width:100%; background:#1a1a1a; border:1.2px solid #2a2a2a; color:#D4D4D4;
+    padding:14px; border-radius:12px; outline:none; font-size:16px;
+  }
+  textarea{min-height:72px; resize:vertical}
+  input[type=range]{width:100%}
+  input[type=color]{width:100%; height:46px; padding:0; border:none; background:#1a1a1a; border-radius:10px}
+  .btn{background:#f5f5f5; color:#111; border:none; padding:14px 16px; border-radius:12px; font-weight:800; cursor:pointer}
+  .btn.secondary{background:#222222; color:#eaeaea; border:1px solid #2a2a2a}
+
+  .preview-area{display:grid; grid-auto-rows:1fr; gap:14px; align-content:start}
+  @media (max-width: 900px){ .preview-area{ grid-template-columns: 1fr !important; } }
+  canvas.preview{width:100%; height:auto; background:#000; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,.45); cursor:pointer; touch-action:manipulation}
+
+  .tips{font-size:13px; color:#b5b5b5; background:#1a1a1a; border:1px dashed #2a2a2a; padding:12px; border-radius:12px}
+  .checkbox{display:flex; align-items:center; gap:10px; font-size:14px; color:#bdbdbd}
+  .stories-fields{display:grid; gap:12px; margin-top:10px}
+  .story-field{display:grid; gap:10px; padding:12px; border:1px dashed #2a2a2a; border-radius:12px; background:#1a1a1a}
+  .story-header{display:flex; justify-content:space-between; align-items:center; font-weight:700; color:#d8d8d8}
+  .story-counters{display:flex; gap:16px; color:#8a8a8a; font-size:13px}
+  .toolbar{position:sticky; bottom:0; background:linear-gradient(180deg, rgba(31,31,31,0) 0%, rgba(31,31,31,1) 30%); padding-top:10px}
+
+  /* PIP mini preview (mobile, na aba Ajustes) */
+  .pip{ display:none; position:fixed; right:12px; bottom:78px; width:min(36vw, 160px); aspect-ratio:9/16;
+        background:#000; border-radius:12px; box-shadow:0 12px 30px rgba(0,0,0,.5); border:1px solid #2a2a2a; z-index:9; }
+  .pip canvas{width:100%; height:100%; border-radius:12px; display:block}
+  .pip .label{position:absolute; top:6px; left:8px; font-size:12px; background:#000a; padding:2px 6px; border-radius:999px}
+  @media (max-width: 900px){ body[data-tab="ajustes"] .pip{ display:block } }
+
+/* ======== Sidebar UI/UX upgrades (visual only) ======== */
+:root{
+  --panel-contrast:#232323;
+  --panel-soft:#1b1b1b;
+  --stroke:#2a2a2a;
+  --stroke-weak:#2f2f2f;
+  --accent:#8ab4ff;           /* azul suave p/ foco */
+  --accent-2:#a7f3d0;         /* verde menta p/ feedback */
+  --chip:#2a2a2a;
+  --chip-ok:#163a2a;
+  --chip-warn:#3a2a16;
+  --shadow-lg:0 18px 40px rgba(0,0,0,.45);
+  --shadow-md:0 10px 24px rgba(0,0,0,.35);
+}
+
+/* Painel lateral refinado */
+#controls.panel{
+  background:linear-gradient(180deg, var(--panel) 0%, var(--panel-soft) 100%);
+  border:1px solid var(--stroke);
+  border-radius:16px;
+  padding:18px 16px 84px;
+  box-shadow:var(--shadow-lg);
+}
+
+/* Título de seção */
+.section{
+  background:linear-gradient(180deg, #1a1a1a 0%, #171717 100%);
+  border:1px solid var(--stroke-weak);
+  border-radius:14px;
+  padding:14px;
+  margin:14px 0;
+}
+.section + .section{ margin-top:16px; }
+
+.section-title{
+  display:flex; align-items:center; gap:8px;
+  font-size:13px; letter-spacing:.04em; text-transform:uppercase;
+  color:#bdbdbd; margin:-2px 0 10px;
+}
+.section-title::before{
+  content:""; display:inline-block; width:8px; height:8px; border-radius:2px;
+  background:linear-gradient(135deg, var(--accent), #c7d2fe);
+  box-shadow:0 0 0 3px rgba(138,180,255,.1);
+}
+
+/* Grids mais arejados */
+.row, .row-3{ gap:14px; }
+label{ font-size:12px; color:#a6a6a6; margin:8px 0 6px; }
+
+/* Inputs refinados */
+input[type=text], textarea, select{
+  background:#121212; border:1.2px solid #2a2a2a;
+  color:#eaeaea; border-radius:12px; padding:14px;
+  transition:border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+input[type=text]::placeholder, textarea::placeholder{ color:#7a7a7a; }
+
+input[type=text]:focus, textarea:focus, select:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(138,180,255,.12);
+  outline:none;
+}
+
+/* Realce do bloco que contém inputs focados */
+.section:has(input:focus, textarea:focus, select:focus){
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(138,180,255,.08) inset;
+}
+
+/* Color picker */
+input[type=color]{
+  background:#111; border:1px solid #2a2a2a; border-radius:12px; height:48px;
+}
+
+/* Sliders modernos */
+input[type=range]{
+  -webkit-appearance:none; height:4px; border-radius:999px; background:#2a2a2a;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+  background:linear-gradient(135deg, var(--accent), #c7d2fe);
+  border:2px solid #0d0d0d; box-shadow:0 2px 10px rgba(0,0,0,.35);
+  cursor:pointer;
+}
+input[type=range]::-moz-range-thumb{
+  width:18px; height:18px; border-radius:50%;
+  background:linear-gradient(135deg, var(--accent), #c7d2fe);
+  border:2px solid #0d0d0d; box-shadow:0 2px 10px rgba(0,0,0,.35);
+  cursor:pointer;
+}
+
+/* Chips de contagem (H:x, S:x) */
+.story-counters{ gap:8px; }
+.chip{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 8px; border-radius:999px;
+  background:var(--chip); color:#cfcfcf; font-size:12px; border:1px solid #333;
+}
+.chip.ok{ background:var(--chip-ok); color:#b6f0d0; border-color:#1f533a; }
+.chip.warn{ background:var(--chip-warn); color:#f7e4b0; border-color:#5b421f; }
+
+/* Caso os counters ainda sejam <small>, estilize como chip */
+.story-counters small{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 8px; border-radius:999px;
+  background:var(--chip); color:#cfcfcf; font-size:12px; border:1px solid #333;
+}
+
+/* Card do slide mais limpo */
+.story-field{
+  background:linear-gradient(180deg, #141414 0%, #111 100%);
+  border:1px solid #2a2a2a; border-radius:14px; padding:14px;
+}
+.story-field .story-header{
+  color:#d8d8d8; margin-bottom:8px;
+}
+
+/* Destaque no card quando editando */
+.story-field:has(input:focus), .story-field:has(textarea:focus){
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(138,180,255,.10) inset;
+}
+
+/* Indicador/toolbar mais "glass" */
+.toolbar{
+  position:sticky; bottom:0;
+  background:linear-gradient(180deg, rgba(31,31,31,0) 0%, rgba(31,31,31,.95) 40%, rgba(31,31,31,1) 100%);
+  padding:12px 0 4px;
+}
+.btn#downloadAllBtn{
+  background:linear-gradient(135deg, #f5f5f5, #e8e8e8);
+  color:#0f0f0f; font-weight:900;
+  box-shadow:0 10px 24px rgba(0,0,0,.35);
+}
+
+/* Chips do topo (contador de slides, etc.) */
+#storyCountLabel{
+  display:inline-block; margin-left:8px; padding:3px 10px; border-radius:999px;
+  background:#202020; border:1px solid #2b2b2b; color:#d8d8d8; font-size:12px;
+}
+
+/* Tabs mobile - mais clicáveis */
+.tabs{
+  background:#181818; border:1px solid #2a2a2a; border-radius:14px; padding:6px;
+}
+.tab-btn{
+  font-weight:800; border-radius:10px; border:1px solid #303030;
+  background:#202020; color:#efefef;
+}
+.tab-btn.active{
+  background:linear-gradient(135deg, var(--accent), #c7d2fe);
+  color:#0e0e0e; border-color:transparent;
+}
+
+
+/* ======== Sidebar: Tabbed Navigation for sections ======== */
+.section-menu-nav{
+  position:sticky; top:0; z-index:7;
+  display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;
+  background:transparent;
+  padding:6px 2px 8px; margin:-6px 0 6px;
+}
+.section-menu-nav .menu-tab-btn{
+  border:1px solid #2a2a2a; border-radius:10px; padding:10px 12px;
+  background:#191919; color:#cfcfcf; font-size:12px; font-weight:800;
+  cursor:pointer; transition:border-color .15s ease, background .15s ease, color .15s ease;
+}
+.section-menu-nav .menu-tab-btn.active{
+  background:linear-gradient(135deg, #8ab4ff, #c7d2fe);
+  color:#0d0d0d; border-color:transparent;
+}
+
+.menu-section{ display:none; }
+.menu-section.active{ display:block; }
+/* keep existing .section visuals */
+
+</style>
+
+<link href="https://fonts.googleapis.com/css2?family=Barrio&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton+SC&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Slackey&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab+Highlight&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=New+Amsterdam&display=swap" rel="stylesheet">
+
+</head>
+<body data-tab="preview">
+  <!-- Abas (mobile) -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tabPreview">Preview</button>
+    <button class="tab-btn" id="tabAjustes">Ajustes</button>
+  </div>
+
+  <!-- Painel de Ajustes (esquerda) -->
+  
+<section class="panel" id="controls">
+    <!-- Título superior -->
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h2 style="margin:0; font-size:22px; color:#D4D4D4;">Gerador de Carrossel</h2>
+    <small style="font-size:12px; color:#9a9a9a;">
+      by <a href="https://www.instagram.com/filippesr/" target="_blank" style="color:#8ab4ff; text-decoration:none; font-weight:600;">Filippe</a>
+    </small>
+  </div>
+
+  <h2 style="margin-bottom:10px;">Ajustes</h2>
+
+  <!-- Navegação por Abas dos Grupos -->
+  <div class="section-menu-nav" id="menuTabs">
+    <button class="menu-tab-btn active" data-target="#secConteudo">Conteúdo</button>
+    <button class="menu-tab-btn" data-target="#secGeral">Geral</button>
+    <button class="menu-tab-btn" data-target="#secTipografia">Tipografia</button>
+    <button class="menu-tab-btn" data-target="#secNavegacao">Navegação</button>
+  </div>
+
+
+  <!-- Seção: Geral -->
+  <div class="section menu-section" id="secGeral">
+    <div class="section-title">Geral</div>
+
+    <div class="row">
+      <div>
+        <label for="storyCount">Número de slides <span id="storyCountLabel">3</span></label>
+        <input id="storyCount" type="range" min="1" max="10" value="3" />
+      </div>
+      <div>
+        <label for="format">Formato</label>
+        <select id="format">
+          <option value="story">Stories 1080×1920 (9:16)</option>
+          <option value="carousel" selected>Carrossel 1080×1350 (4:5)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="bgColor">Cor de fundo</label>
+        <input id="bgColor" type="color" value="#030303" />
+      </div>
+      <div>
+        <label for="textColor">Cor do texto</label>
+        <input id="textColor" type="color" value="#D4D4D4" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="align">Alinhamento (horizontal)</label>
+        <select id="align">
+          <option value="left" selected>Esquerda</option>
+          <option value="center">Centralizado</option>
+          <option value="right">Direita</option>
+        </select>
+      </div>
+      <div>
+        <label for="signature">Assinatura</label>
+        <input id="signature" type="text" placeholder="@seuuser" value="@filippesr" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Seção: Tipografia -->
+  <div class="section menu-section" id="secTipografia">
+    <div class="section-title">Tipografia</div>
+
+    <div class="row">
+      <div>
+        <label for="fontFamilyH">Fonte Headline</label>
+        <select id="fontFamilyH">
+          <option value="'Barrio', cursive">Barrio</option>
+          <option value="'Anton SC', sans-serif">Anton SC</option>
+          <option value="'Slackey', cursive">Slackey</option>
+          <option value="'Zilla Slab Highlight', serif">Zilla Slab Highlight</option>
+          <option value="'New Amsterdam', serif">New Amsterdam</option>
+          <option value="'Climate Crisis', Impact, sans-serif" selected>Climate Crisis</option>
+          <option value="Poppins, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">Poppins</option>
+          <option value="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">Inter / System</option>          <option value="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif">Impact</option>
+          <option value="Montserrat, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">Montserrat</option><option value="'Notable', Impact, sans-serif">Notable</option>
+        </select>
+      </div>
+      <div>
+        <label for="fontFamilyS">Fonte Subheadline</label>
+        <select id="fontFamilyS">
+          <option value="'Instrument Serif', Georgia, serif" selected>Instrument Serif</option>
+          <option value="Poppins, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">Poppins</option>
+          <option value="'Climate Crisis', Impact, sans-serif">Climate Crisis</option>
+          <option value="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">Inter / System</option>
+          <option value="Arial, Helvetica, sans-serif">Arial</option>
+          <option value="Georgia, serif">Georgia</option>          <option value="Montserrat, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">Montserrat</option>          <option value="Verdana, Geneva, sans-serif">Verdana</option><option value="'Notable', Arial, sans-serif">Notable</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="fontFamilySig">Fonte Assinatura</label>
+        <select id="fontFamilySig">
+          <option value="Poppins, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" selected>Poppins</option>
+          <option value="'Instrument Serif', Georgia, serif">Instrument Serif</option>
+          <option value="'Climate Crisis', Impact, sans-serif">Climate Crisis</option>
+          <option value="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">Inter / System</option>
+          <option value="Arial, Helvetica, sans-serif">Arial</option>
+          <option value="Georgia, serif">Georgia</option>          <option value="Montserrat, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto">Montserrat</option>          <option value="Verdana, Geneva, sans-serif">Verdana</option><option value="'Notable', Arial, sans-serif">Notable</option>
+        </select>
+      </div>
+      <div>
+        <label for="signatureFontSize">Tamanho da Assinatura</label>
+        <input id="signatureFontSize" type="range" min="16" max="48" value="24" />
+      </div>
+    </div>
+
+    <div class="row-3">
+      <div>
+        <label for="hSize">Tamanho Headline</label>
+        <input id="hSize" type="range" min="36" max="160" value="96" />
+      </div>
+      <div>
+        <label for="sSize">Tamanho Subheadline</label>
+        <input id="sSize" type="range" min="24" max="96" value="48" />
+      </div>
+      <div>
+        <label for="lineHeight">Altura de Linha</label>
+        <input id="lineHeight" type="range" min="1.0" max="1.6" value="1.2" step="0.05" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="checkbox"><input id="uppercase" type="checkbox" checked /> <label for="uppercase">Headline em CAIXA ALTA</label></div>
+      <div class="checkbox"><input id="safe" type="checkbox" /> <label for="safe">Guias de área segura</label></div>
+    </div>
+  </div>
+
+  <!-- Seção: Navegação e Indicadores -->
+  <div class="section menu-section" id="secNavegacao">
+    <div class="section-title">Navegação</div>
+
+    <div class="row">
+      <div class="checkbox"><input id="showIndicator" type="checkbox" checked /> <label for="showIndicator">Mostrar indicador de deslize (exceto no último)</label></div>
+      <div>
+        <label for="indicatorText">Texto do indicador</label>
+        <input id="indicatorText" type="text" value="deslize →" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="checkbox"><input id="hideInternalHeadlines" type="checkbox" checked /> <label for="hideInternalHeadlines">Ocultar headline em slides internos</label></div>
+    </div>
+  </div>
+
+  <!-- Seção: Conteúdo dos slides -->
+  <div class="section menu-section active" id="secConteudo">
+    <div class="section-title">Conteúdo</div>
+    <div class="stories-fields" id="storiesFields"></div>
+  </div>
+
+  <div class="tips">No mobile use as abas acima para alternar <b>Preview</b> | <b>Ajustes</b>. O mini‑preview (PIP) mostra em tempo real o slide ativo.</div>
+
+  <div class="toolbar">
+    <button class="btn" id="downloadAllBtn" style="width:100%">Baixar Todos os Slides</button>
+  </div>
+</section>
+
+
+  <!-- Preview (direita) -->
+  <section class="preview-wrap">
+    <div class="preview-area" id="previewArea"></div>
+  </section>
+
+  <!-- Mini preview flutuante (PIP) -->
+  <div class="pip" id="pip">
+    <span class="label">Preview</span>
+    <canvas id="pipCanvas"></canvas>
+  </div>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id)
+  const previewArea = $('previewArea')
+  const wrap = document.querySelector('.preview-wrap')
+  const fieldsWrap = $('storiesFields')
+  const tabPreview = $('tabPreview')
+  const tabAjustes = $('tabAjustes')
+  const pip = $('pip')
+  const pipCanvas = $('pipCanvas')
+  let currentSlideIndex = 0
+  // cache de imagens de fundo por dataURL
+  const imageCache = {}
+
+  // Tabs (mobile)
+  function setTab(tab){
+    document.body.setAttribute('data-tab', tab)
+    if(tabPreview && tabAjustes){
+      tabPreview.classList.toggle('active', tab==='preview')
+      tabAjustes.classList.toggle('active', tab==='ajustes')
+    }
+    localStorage.setItem('seq_tab', tab)
+    setTimeout(()=>{ renderAll() }, 0)
+  }
+  if(tabPreview && tabAjustes){
+    tabPreview.addEventListener('click', ()=> setTab('preview'))
+    tabAjustes.addEventListener('click', ()=> setTab('ajustes'))
+    setTab(localStorage.getItem('seq_tab') || 'preview')
+  }
+
+  function dims(){
+    const f = $('format').value
+    if(f==='carousel') return {W:1080, H:1350, ratio:1350/1080}
+    return {W:1080, H:1920, ratio:1920/1080}
+  }
+
+  function ensureFields(){
+    const count = parseInt($('storyCount').value,10)
+    $('storyCountLabel').textContent = count
+    const existing = fieldsWrap.querySelectorAll('.story-field')
+    for(let i=existing.length; i<count; i++){
+      const div = document.createElement('div')
+      div.className = 'story-field'
+      div.innerHTML = `
+        <div class="story-header">
+          <div>Slide ${i+1}</div>
+          <div class="story-counters">
+            <small id="hchars-${i}">H:0</small>
+            <small id="schars-${i}">S:0</small>
+          </div>
+        </div>
+        <input id="h-${i}" type="text" placeholder="Headline do slide ${i+1}" />
+        <textarea id="s-${i}" placeholder="Subheadline do slide ${i+1}"></textarea>
+      `
+      fieldsWrap.appendChild(div)
+
+
+  // === Tamanhos de fonte por slide (Headline/Subheadline) ===
+  ;(()=>{
+    const ui = document.createElement('div');
+    ui.className = 'per-slide-fontsizes';
+    ui.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;padding:10px;border:1px dashed #2a2a2a;border-radius:12px;background:#121212';
+
+    const labH = document.createElement('label'); labH.textContent = 'Tamanho Headline (px)';
+    const labS = document.createElement('label'); labS.textContent = 'Tamanho Subheadline (px)';
+    const inputH = document.createElement('input'); inputH.type='range';
+inputH.min='24'; inputH.max='200'; inputH.step='1'; inputH.min='24'; inputH.max='200'; inputH.step='1';
+    const inputS = document.createElement('input'); inputS.type='range';
+inputS.min='16'; inputS.max='160'; inputS.step='1'; inputS.min='16'; inputS.max='160'; inputS.step='1';
+
+    // estilos inputs
+    [inputH, inputS].forEach(el=> el.style.cssText = 'width:100%;padding:10px;border:1px solid #2a2a2a;border-radius:10px;background:#1a1a1a;color:#eaeaea');
+
+    // valores iniciais (dataset > localStorage > controles globais)
+    const globalH = (document.getElementById('hSize')||{}).value || '96';
+    const globalS = (document.getElementById('sSize')||{}).value || '48';
+    inputH.value = div.dataset.hsize || localStorage.getItem('ps_h_'+i) || globalH;
+    inputS.value = div.dataset.ssize || localStorage.getItem('ps_s_'+i) || globalS;
+
+    inputH.addEventListener('input', ()=>{ div.dataset.hsize = String(inputH.value||''); localStorage.setItem('ps_h_'+i, inputH.value||''); renderAll() }, {passive:true});
+    inputS.addEventListener('input', ()=>{ div.dataset.ssize = String(inputS.value||''); localStorage.setItem('ps_s_'+i, inputS.value||''); renderAll() }, {passive:true});
+
+    ui.appendChild(labH); ui.appendChild(inputH);
+    ui.appendChild(labS); ui.appendChild(inputS);
+    div.appendChild(ui);
+  })();
+
+
+      // Upload de imagem de fundo apenas para o Slide 1
+      
+      // === Upload de imagem de fundo para TODOS os slides ===
+      const bgUpload = document.createElement('input')
+      bgUpload.type = 'file'
+      bgUpload.accept = 'image/*'
+      bgUpload.id = `bgimg-${i}`
+      bgUpload.style.marginTop = '8px'
+      bgUpload.style.background = '#121212'
+      bgUpload.style.border = '1.2px solid #2a2a2a'
+      bgUpload.style.color = '#eaeaea'
+      bgUpload.style.padding = '10px'
+      bgUpload.style.borderRadius = '12px'
+      bgUpload.style.width = '100%'
+      const bgLabel = document.createElement('label')
+      bgLabel.textContent = `Imagem de fundo (Slide ${i+1})`
+      bgLabel.htmlFor = `bgimg-${i}`
+      div.appendChild(bgLabel)
+      div.appendChild(bgUpload)
+
+      bgUpload.addEventListener('change', (e)=>{
+        const file = e.target.files && e.target.files[0]
+        if(file){
+          const reader = new FileReader()
+          reader.onload = ev => {
+            div.dataset.bgimg = ev.target.result
+            const img = new Image()
+            img.onload = () => { imageCache[div.dataset.bgimg] = img; renderAll() }
+            img.src = div.dataset.bgimg
+          }
+          reader.readAsDataURL(file)
+        }else{
+          delete div.dataset.bgimg
+          renderAll()
+        }
+      })
+      // ----- Controles de efeitos do BG (por slide) -----
+      const ctrlWrap = document.createElement('div')
+      ctrlWrap.id = `bg-controls-${i}`
+      ctrlWrap.style.marginTop = '10px'
+      ctrlWrap.style.border = '1px dashed #2a2a2a'
+      ctrlWrap.style.borderRadius = '12px'
+      ctrlWrap.style.padding = '10px'
+      ctrlWrap.style.background = '#121212'
+      ctrlWrap.style.display = 'block'
+
+      const help = document.createElement('div')
+      help.style.fontSize = '12px'
+      help.style.color = '#bdbdbd'
+      help.style.marginBottom = '8px'
+      help.textContent = 'Dica: selecione uma imagem acima para ver o efeito. Estes controles são por slide.'
+      ctrlWrap.appendChild(help)
+
+      // BLUR
+      const blurLabel = document.createElement('label')
+      blurLabel.textContent = 'Blur (px)'
+      const blurInput = document.createElement('input')
+      blurInput.type = 'range'; blurInput.min = '0'; blurInput.max = '30'; blurInput.value = div.dataset.bgblur || '0'
+      blurInput.style.width = '100%'
+
+      // OPACIDADE
+      const opLabel = document.createElement('label')
+      opLabel.textContent = 'Opacidade do fundo (%)'
+      const opInput = document.createElement('input')
+      opInput.type = 'range'; opInput.min = '0'; opInput.max = '100'; opInput.value = div.dataset.bgopacity || '100'
+      opInput.style.width = '100%'
+
+      // OVERLAY MULTIPLY
+      const ovColorLabel = document.createElement('label')
+      ovColorLabel.textContent = 'Cor da camada (Multiply)'
+      const ovColor = document.createElement('input')
+      ovColor.type = 'color'
+      ovColor.value = div.dataset.bgcolor || (document.getElementById('bgColor')?.value || '#030303')
+
+      const ovAlphaLabel = document.createElement('label')
+      ovAlphaLabel.textContent = 'Intensidade da camada (0–100%)'
+      const ovAlpha = document.createElement('input')
+      ovAlpha.type = 'range'; ovAlpha.min = '0'; ovAlpha.max = '100'; ovAlpha.value = div.dataset.ovalpha || '0'
+      ovAlpha.style.width = '100%'
+
+      const help2 = document.createElement('div')
+      help2.style.fontSize = '12px'
+      help2.style.color = '#bdbdbd'
+      help2.style.marginTop = '8px'
+      help2.textContent = 'Blur aplica desfoque; Opacidade controla visibilidade; a camada Multiply usa a cor acima com intensidade.'
+
+      ctrlWrap.appendChild(blurLabel); ctrlWrap.appendChild(blurInput)
+      ctrlWrap.appendChild(opLabel); ctrlWrap.appendChild(opInput)
+      ctrlWrap.appendChild(ovColorLabel); ctrlWrap.appendChild(ovColor)
+      ctrlWrap.appendChild(ovAlphaLabel); ctrlWrap.appendChild(ovAlpha)
+      ctrlWrap.appendChild(help2)
+      div.appendChild(ctrlWrap)
+
+      const onBlur = ()=>{ div.dataset.bgblur = String(blurInput.value); renderAll() }
+      const onOpacity = ()=>{ div.dataset.bgopacity = String(opInput.value); renderAll() }
+      const onOvColor = ()=>{ div.dataset.bgcolor = String(ovColor.value); div.dataset.bgcolorSet = '1'; renderAll() }
+      const onOvAlpha = ()=>{ div.dataset.ovalpha = String(ovAlpha.value); renderAll() }
+      blurInput.addEventListener('input', onBlur, {passive:true})
+      opInput.addEventListener('input', onOpacity, {passive:true})
+      ovColor.addEventListener('input', onOvColor, {passive:true})
+      ovAlpha.addEventListener('input', onOvAlpha, {passive:true})
+const hi = div.querySelector('#h-'+i)
+      const si = div.querySelector('#s-'+i)
+      const focus = ()=>{ currentSlideIndex = i; renderAll() }
+      hi.addEventListener('focus', focus)
+      si.addEventListener('focus', focus)
+      hi.addEventListener('input', renderAll, {passive:true})
+      si.addEventListener('input', renderAll, {passive:true})
+    }
+    for(let i=existing.length-1; i>=count; i--){
+      existing[i].remove()
+    }
+    if(currentSlideIndex >= count) currentSlideIndex = count-1
+  }
+
+  function readTexts(){
+    const count = parseInt($('storyCount').value,10)
+    const arr = []
+    for(let i=0;i<count;i++){
+      const h = ($('h-'+i)?.value || '').trim()
+      const s = ($('s-'+i)?.value || '').trim()
+      const card = $('h-'+i)?.closest('.story-field')
+      const bgimg = card && card.dataset ? (card.dataset.bgimg || null) : null
+      const bgblur = card && card.dataset ? (parseFloat(card.dataset.bgblur||'0')||0) : 0
+      const bgopacity = card && card.dataset ? (parseFloat(card.dataset.bgopacity||'100')/100) : 1
+      const ovcolor = (card && card.dataset && card.dataset.bgcolorSet === '1') ? (card.dataset.bgcolor) : (document.getElementById('bgColor')?.value || '#030303')
+      const ovalpha = card && card.dataset ? (parseFloat(card.dataset.ovalpha||'0')/100) : 0
+      arr.push({h, s, bgimg, bgblur, bgopacity, ovcolor, ovalpha, hSize: (card && card.dataset && card.dataset.hsize? parseFloat(card.dataset.hsize)||null : null), sSize: (card && card.dataset && card.dataset.ssize? parseFloat(card.dataset.ssize)||null : null)})
+      const hC = $('hchars-'+i), sC = $('schars-'+i)
+      if(hC) hC.textContent = 'H:'+ h.length
+      if(sC) sC.textContent = 'S:'+ s.length
+    }
+    return arr
+  }
+
+  function hexToRgb(hex){
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+    if(!m) return {r:0,g:0,b:0}
+    return {r:parseInt(m[1],16), g:parseInt(m[2],16), b:parseInt(m[3],16)}
+  }
+  function luminance({r,g,b}){
+    const srgb = [r/255,g/255,b/255].map(v => v<=0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4))
+    return 0.2126*srgb[0] + 0.7152*srgb[1] + 0.0722*srgb[2]
+  }
+
+  // FUNÇÃO CORRIGIDA PARA QUEBRAS DE LINHA
+  function breakLines(ctx, text, maxWidth){
+    // Primeiro, dividir por quebras de linha manuais (\n)
+    const manualLines = text.split('\n');
+    const lines = [];
+    
+    for (const line of manualLines) {
+      // Se a linha estiver vazia após split, adiciona uma linha vazia
+      if (line.trim() === '') {
+        lines.push('');
+        continue;
+      }
+      
+      // Para cada linha manual, aplicar quebra automática por largura
+      const words = line.split(/\s+/).filter(Boolean);
+      let currentLine = '';
+      
+      for (const w of words) {
+        const test = currentLine ? currentLine + ' ' + w : w;
+        if (ctx.measureText(test).width > maxWidth) {
+          if (currentLine) lines.push(currentLine);
+          currentLine = w;
+        } else {
+          currentLine = test;
+        }
+      }
+      
+      if (currentLine) lines.push(currentLine);
+    }
+    
+    return lines;
+  }
+
+  function drawSlide(data, options, index, total){
+    const {W,H} = dims()
+    const cvs = document.createElement('canvas')
+    cvs.width = W
+    cvs.height = H
+    const ctx = cvs.getContext('2d')
+
+    const bgHex = $('bgColor').value || '#030303'
+    const textHex = $('textColor').value || '#D4D4D4'
+    const bg = bgHex
+    const lum = luminance(hexToRgb(bgHex))
+    // Per-slide sizes (fallback nos controles globais de Tipografia)
+const _hSize = (data && data.hSize) ? data.hSize : options.hSize;
+const _sSize = (data && data.sSize) ? data.sSize : options.sSize;
+
+    
+    // AGORA TODOS OS ELEMENTOS USAM A MESMA COR DE TEXTO
+    const fg = textHex
+    const muted = textHex // Subheadline e assinatura também usam a cor principal
+    const indicatorColor = textHex // Indicador também usa a cor principal
+
+    
+    // Fundo: imagem (se houver para este slide) ou cor sólida
+    if(data.bgimg){
+      const ready = imageCache[data.bgimg]
+      if(ready){
+        
+// Desenha imagem com efeito 'cover' (zoom + crop, sem distorção)
+const imgRatio = ready.width / ready.height
+const canvasRatio = W / H
+let sx, sy, sWidth, sHeight
+
+if(imgRatio > canvasRatio){
+  // Imagem mais larga → cortar laterais
+  sHeight = ready.height
+  sWidth = sHeight * canvasRatio
+  sx = (ready.width - sWidth) / 2
+  sy = 0
+}else{
+  // Imagem mais alta → cortar topo/baixo
+  sWidth = ready.width
+  sHeight = sWidth / canvasRatio
+  sx = 0
+  sy = (ready.height - sHeight) / 2
+}
+ctx.save()
+        ctx.filter = (data.bgblur && data.bgblur>0) ? `blur(${data.bgblur}px)` : 'none'
+        const prevAlpha = ctx.globalAlpha
+        ctx.globalAlpha = Math.max(0, Math.min(1, data.bgopacity || 1))
+        ctx.drawImage(ready, sx, sy, sWidth, sHeight, 0, 0, W, H)
+        ctx.globalAlpha = prevAlpha
+        ctx.restore()
+        if(data.ovalpha && data.ovalpha>0){
+          ctx.save()
+          ctx.globalCompositeOperation = 'multiply'
+          const rgb = hexToRgb(data.ovcolor || '#000000')
+          const a = Math.max(0, Math.min(1, data.ovalpha))
+          ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${a})`
+          ctx.fillRect(0,0,W,H)
+          ctx.restore()
+        }
+
+      }else{
+        const img = new Image()
+        img.onload = ()=>{ imageCache[data.bgimg] = img; try{ renderAll() }catch(e){} }
+        img.src = data.bgimg
+        ctx.fillStyle = bg
+        ctx.fillRect(0,0,W,H)
+      }
+    }else{
+      ctx.fillStyle = bg
+      ctx.fillRect(0,0,W,H)
+    }
+
+
+    if(options.safe){
+      const margin = Math.floor(Math.min(W,H)*0.1)
+      ctx.save()
+      ctx.strokeStyle = fg
+      ctx.globalAlpha=.18
+      ctx.setLineDash([12,12])
+      ctx.strokeRect(margin, margin, W-2*margin, H-2*margin)
+      ctx.setLineDash([])
+      ctx.globalAlpha=1
+      ctx.restore()
+    }
+
+    const padding = Math.floor(Math.min(W,H)*0.08)
+    const textMaxWidth = W - padding*2
+    const align = options.align
+    ctx.textAlign = align==='center' ? 'center' : align==='right' ? 'right' : 'left'
+    const x = align==='center' ? W/2 : align==='right' ? W - padding : padding
+
+    // NOVA LÓGICA: Verificar se deve ocultar headline em slides internos
+    const hideInternalHeadlines = $('hideInternalHeadlines').checked
+    const isInternalSlide = index > 0 && index < total-1
+    const shouldHideHeadline = hideInternalHeadlines && isInternalSlide
+
+    const isHeadlineEmpty = !data.h
+    const isSubEmpty = !data.s
+    const phH = `Preencha a headline do slide ${index+1}`
+    const phS = `Adicione a subheadline do slide ${index+1}`
+    const headline = (options.uppercase && !shouldHideHeadline ? ((data.h || phH).toUpperCase()) : (data.h || phH))
+    ctx.font = `900 ${_hSize}px ${options.fontH}`
+    const HL = shouldHideHeadline ? [] : breakLines(ctx, headline, textMaxWidth)
+    const hLH = _hSize * options.lh
+    const hBlock = HL.length * hLH
+
+    ctx.font = `500 ${_sSize}px ${options.fontS}`
+    const SL = breakLines(ctx, (data.s || phS), textMaxWidth)
+    const sLH = _sSize * 1.25
+    const sBlock = SL.length * sLH
+
+    const sigSize = options.signatureFontSize || Math.max(16, Math.round(Math.min(W,H)*0.033))
+    const sigBlock = options.signature ? sigSize * 1.2 : 0
+
+    const spacing1 = HL.length && SL.length ? Math.floor(_hSize*0.22) : 0
+    const spacing2 = options.signature ? Math.floor(_sSize*0.55) : 0
+
+    const totalBlock = hBlock + spacing1 + sBlock + spacing2 + sigBlock
+
+    let y = (H - totalBlock)/2
+
+    // Desenhar assinatura no topo (ANTES do conteúdo principal)
+    if(options.signature){
+      ctx.fillStyle = fg // Usa a cor principal do texto
+      ctx.font = `600 ${sigSize}px ${options.fontSig}`
+      // Posicionar no topo com margem
+      const sigY = padding + sigSize;
+      ctx.fillText(options.signature, x, sigY)
+    }
+
+    ctx.fillStyle = fg // Headline usa a cor principal
+    ctx.font = `900 ${_hSize}px ${options.fontH}`
+    const _alphaH = isHeadlineEmpty ? 0.45 : 1
+    ctx.save(); ctx.globalAlpha *= _alphaH
+    for(const line of HL){
+      y += hLH
+      ctx.fillText(line, x, y)
+    }
+    ctx.restore()
+
+    if(SL.length){
+      y += spacing1
+      ctx.fillStyle = fg // Subheadline também usa a cor principal
+      ctx.font = `500 ${_sSize}px ${options.fontS}`
+      const _alphaS = isSubEmpty ? 0.45 : 1
+      ctx.save(); ctx.globalAlpha *= _alphaS
+      for(const line of SL){
+        y += sLH
+        ctx.fillText(line, x, y)
+      }
+      ctx.restore()
+    } else if(shouldHideHeadline && isHeadlineEmpty){
+      // ambos vazios e sem headline interna -> placeholder genérico
+      ctx.save(); ctx.fillStyle = fg; ctx.globalAlpha *= 0.35
+      ctx.font = `700 ${Math.max(28, Math.round(_hSize*0.6))}px ${options.fontS}`
+      ctx.textAlign = options.align==='center' ? 'center' : options.align==='right' ? 'right' : 'left'
+      const msg = `Adicione conteúdo ao slide ${index+1}`
+      const ty = H/2
+      const tx = options.align==='center' ? W/2 : options.align==='right' ? (W - Math.floor(Math.min(W,H)*0.08)) : Math.floor(Math.min(W,H)*0.08)
+      ctx.fillText(msg, tx, ty)
+      ctx.restore()
+    }
+
+    if(options.showIndicator && !options.isLast){
+      ctx.save()
+      // ALTERAÇÃO: Usar a mesma fonte da assinatura para o indicador
+      ctx.font = `700 ${Math.max(16, Math.round(Math.min(W,H)*0.034))}px ${options.fontSig}`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'alphabetic'
+      ctx.fillStyle = fg // Indicador também usa a cor principal
+      const indicator = options.indicatorText || 'deslize →'
+      const iy = H - Math.floor(padding*0.6)
+      ctx.fillText(indicator, W/2, iy)
+      ctx.restore()
+    }
+
+    return cvs
+  }
+
+  function layoutGrid(canvases){
+    const gap = 14
+    const w = wrap.clientWidth - 24
+    const count = canvases.length
+    const ratio = dims().ratio
+    if(count===0) return
+
+    const isMobile = window.matchMedia('(max-width: 900px)').matches
+    if(isMobile){
+      const cw = Math.max(140, w)
+      const ch = Math.floor(cw * ratio)
+      previewArea.style.gridTemplateColumns = '1fr'
+      const thumbs = previewArea.querySelectorAll('canvas.preview')
+      thumbs.forEach((thumb, i)=>{
+        thumb.width = cw
+        thumb.height = ch
+        const tctx = thumb.getContext('2d')
+        tctx.clearRect(0,0,cw,ch)
+        tctx.drawImage(canvases[i], 0,0, cw, ch)
+      })
+      return
+    }
+
+    // Desktop
+    const minCell = 220, maxCell = 520
+    let cols = Math.min(count, Math.max(1, Math.floor((w + gap) / (minCell + gap))))
+    function cellWidthFor(cols){ return Math.min(maxCell, Math.floor((w - gap*(cols-1)) / cols)) }
+    let cw = cellWidthFor(cols)
+    while(cols < count){
+      const nextCw = cellWidthFor(cols+1)
+      if(nextCw >= minCell){ cols += 1; cw = nextCw } else break
+    }
+
+    previewArea.style.gridTemplateColumns = `repeat(${cols}, ${cw}px)`
+    const ch = Math.floor(cw * ratio)
+    const thumbs = previewArea.querySelectorAll('canvas.preview')
+    thumbs.forEach((thumb, i)=>{
+      thumb.width = cw
+      thumb.height = ch
+      const tctx = thumb.getContext('2d')
+      tctx.clearRect(0,0,cw,ch)
+      tctx.drawImage(canvases[i], 0,0, cw, ch)
+    })
+  }
+
+  function renderAll(){
+    ensureFields()
+    previewArea.innerHTML = ''
+    const texts = readTexts()
+    const canvases = []
+    const total = texts.length
+    texts.forEach((obj, i)=>{
+      const full = drawSlide(obj, {
+        safe: $('safe').checked,
+        fontH: $('fontFamilyH').value,
+        fontS: $('fontFamilyS').value,
+        fontSig: $('fontFamilySig').value,
+        align: $('align').value,
+        hSize: +$('hSize').value,
+        sSize: +$('sSize').value,
+        lh: +$('lineHeight').value,
+        uppercase: $('uppercase').checked,
+        signature: $('signature').value.trim(),
+        signatureFontSize: +$('signatureFontSize').value,
+        showIndicator: $('showIndicator').checked,
+        indicatorText: $('indicatorText').value.trim(),
+        isLast: i === total-1
+      }, i, total)
+      canvases.push(full)
+      const thumb = document.createElement('canvas')
+      thumb.className = 'preview'
+      thumb.title = `Baixar slide ${i+1}`
+      previewArea.appendChild(thumb)
+      thumb.addEventListener('click',()=>{
+        const a = document.createElement('a')
+        a.download = `slide-${i+1}.png`
+        a.href = full.toDataURL('image/png')
+        a.click()
+      })
+    })
+    layoutGrid(canvases)
+    previewArea._fullCanvases = canvases
+
+    // Atualiza mini-preview (PIP)
+    const w = pip.clientWidth || 120
+    const h = Math.floor(w * dims().ratio)
+    pipCanvas.width = w
+    pipCanvas.height = h
+    const pctx = pipCanvas.getContext('2d')
+    pctx.clearRect(0,0,w,h)
+    const idx = Math.max(0, Math.min(currentSlideIndex, canvases.length-1))
+    if(canvases[idx]) pctx.drawImage(canvases[idx], 0,0, w, h)
+    pip.onclick = ()=> document.body.setAttribute('data-tab','preview')
+  }
+
+  async function downloadAll(){
+    const canvases = previewArea._fullCanvases || []
+    for(let i=0;i<canvases.length;i++){
+      await new Promise(res=>setTimeout(res, 140))
+      const a = document.createElement('a')
+      a.download = `slide-${i+1}.png`
+      a.href = canvases[i].toDataURL('image/png')
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    }
+  }
+
+  // Observa resize p/ recalcular layout
+  const ro = new ResizeObserver(()=>{
+    const texts = readTexts()
+    const canvases = texts.map((obj, i, arr) => drawSlide(obj, {
+      safe: $('safe').checked,
+      fontH: $('fontFamilyH').value,
+      fontS: $('fontFamilyS').value,
+      fontSig: $('fontFamilySig').value,
+      align: $('align').value,
+      hSize: +$('hSize').value, sSize: +$('sSize').value, lh: +$('lineHeight').value,
+      uppercase: $('uppercase').checked, signature: $('signature').value.trim(),
+      signatureFontSize: +$('signatureFontSize').value,
+      showIndicator: $('showIndicator').checked, indicatorText: $('indicatorText').value.trim(),
+      isLast: i === arr.length-1
+    }, i, arr.length))
+    layoutGrid(canvases)
+    previewArea._fullCanvases = canvases
+
+    // Redesenha PIP
+    const w = pip.clientWidth || 120
+    const h = Math.floor(w * dims().ratio)
+    pipCanvas.width = w
+    pipCanvas.height = h
+    const pctx = pipCanvas.getContext('2d')
+    pctx.clearRect(0,0,w,h)
+    const idx = Math.max(0, Math.min(currentSlideIndex, canvases.length-1))
+    if(canvases[idx]) pctx.drawImage(canvases[idx], 0,0, w, h)
+  })
+  ro.observe(wrap)
+
+  // Inputs
+  document.getElementById('controls').addEventListener('input', (e)=>{
+    if(e.target && /^(h|s)-\d+/.test(e.target.id)){
+      currentSlideIndex = parseInt(e.target.id.split('-')[1],10) || 0
+    }
+    renderAll()
+  }, {passive:true})
+  document.getElementById('controls').addEventListener('change', renderAll)
+  document.getElementById('downloadAllBtn').addEventListener('click', downloadAll)
+
+  // Inicializa
+  ensureFields()
+  renderAll()
+
+  // ===== Sidebar Tabbed Navigation (Menu) =====
+  const menuTabs = document.getElementById('menuTabs');
+  const menuBtns = menuTabs ? Array.from(menuTabs.querySelectorAll('.menu-tab-btn')) : [];
+  const sectionsMap = {
+    '#secConteudo': document.getElementById('secConteudo'),
+    '#secGeral': document.getElementById('secGeral'),
+    '#secTipografia': document.getElementById('secTipografia'),
+    '#secNavegacao': document.getElementById('secNavegacao'),
+  };
+  const MENU_KEY = 'seq_menu_tab';
+
+  function activateMenuTab(sel){
+    const target = sectionsMap[sel] || sectionsMap['#secConteudo'];
+    // toggle active class on sections
+    Object.values(sectionsMap).forEach(s => s && s.classList.remove('active'));
+    if(target) target.classList.add('active');
+    // update buttons
+    menuBtns.forEach(b => b.classList.toggle('active', b.dataset.target === sel));
+    try{ localStorage.setItem(MENU_KEY, sel); }catch(e){}
+    // keep the active section in view only if controls panel is scrolled
+    const controls = document.getElementById('controls');
+    if(controls && target){
+      const rect = target.getBoundingClientRect();
+      const cRect = controls.getBoundingClientRect();
+      if(rect.top < cRect.top || rect.bottom > cRect.bottom){
+        target.scrollIntoView({behavior:'smooth', block:'start'});
+      }
+    }
+  }
+
+  // init state
+  let initialMenu = '#secConteudo'; // Forçado ativo Conteúdo
+  try{
+    const saved = localStorage.getItem(MENU_KEY);
+    if(saved && sectionsMap[saved]) initialMenu = saved;
+  }catch(e){}
+  activateMenuTab(initialMenu);
+
+  // clicks
+  menuBtns.forEach(b => b.addEventListener('click', () => activateMenuTab(b.dataset.target)));
+
+})()
+</script>
+</body>
+</html>
