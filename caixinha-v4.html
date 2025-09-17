@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Gerador de Caixinha de Perguntas • v4</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --fg:#fafafa; --panel:#121212;
+    --ig-sticker-top:#2c2c2e;
+    --ig-sticker-bottom:#ffffff;
+    --ig-sticker-text:#ffffff;
+    --ig-question-text:#2a2a2a;
+    --ratio: 1080 / 1920; /* default 9:16 */
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font:16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+    color:var(--fg); background:#0b0b0b;
+    display:grid; grid-template-columns:minmax(360px,520px) 1fr; grid-template-areas:"controls preview";
+    gap:16px; padding:16px; height:100vh;
+  }
+  @media (max-width: 900px){
+    body{grid-template-columns:1fr; grid-template-rows:auto 1fr; grid-template-areas:"controls" "preview";
+         gap:10px; padding:10px; height:100svh;}
+  }
+
+  .panel{background:var(--panel); border:1px solid #1f1f1f; border-radius:16px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.35); overflow:auto}
+  #controls{ grid-area:controls; scrollbar-width: thin; scrollbar-color: #3a3a3a #101010; }
+  .preview-wrap{ grid-area:preview; background:#121212; border:1px solid #1f1f1f; border-radius:16px; padding:12px; box-shadow:0 10px 30px rgba(0,0,0,.35); overflow:auto; }
+  .preview-area{ min-height: calc(100vh - 32px); display:grid; place-items:center; }
+  @media (max-width: 900px){ .preview-area{ min-height: calc(100svh - 20px); } }
+
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .row-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px}
+  @media (max-width: 900px){ .row, .row-3{grid-template-columns:1fr} }
+  label{display:block; font-size:14px; color:#9a9a9a; margin:10px 0 8px}
+
+  input[type=text], textarea, select, input[type=color], input[type=file]{
+    width:100%; background:#0f0f0f; border:1.2px solid #242424; color:#f0f0f0;
+    padding:12px; border-radius:12px; outline:none; font-size:15px;
+  }
+  input[type=file]{padding:10px}
+  textarea{min-height:150px; resize:vertical; white-space:pre-wrap}
+
+  input[type=range]{width:100%}
+  .btn{background:#f5f5f5; color:#111; border:none; padding:14px 16px; border-radius:12px; font-weight:800; cursor:pointer}
+
+  /* Canvas responsivo */
+  canvas.preview{
+    aspect-ratio: var(--ratio);
+    height: min( calc(100vh - 140px), 90vh );
+    max-height: calc(100svh - 140px);
+    width: auto; max-width: min(100%, calc(var(--ratio) * 100vh));
+    display:block; margin:0 auto; background:#000; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,.45); cursor:pointer;
+  }
+  @media (max-width: 900px){
+    canvas.preview{ height: min( calc(100svh - 160px), 88svh ); max-width: 100%; }
+  }
+  .subtle{font-size:12px; color:#808080; margin-top:4px}
+</style>
+</head>
+<body>
+  <section class="panel" id="controls">
+    <h2>Ajustes</h2>
+
+    <div class="row">
+      <div>
+        <label for="ratio">Formato</label>
+        <select id="ratio">
+          <option value="1080x1920" selected>Stories 9:16 (1080×1920)</option>
+          <option value="1080x1350">Feed 4:5 (1080×1350)</option>
+        </select>
+      </div>
+      <div>
+        <label for="bgColor">Cor de fundo</label>
+        <input type="color" id="bgColor" value="#000000"/>
+      </div>
+    </div>
+
+    <fieldset style="border:1px solid #232323;border-radius:12px;padding:12px;margin-top:8px">
+      <legend style="padding:0 6px;color:#bdbdbd;font-size:13px">Imagem de fundo (opcional)</legend>
+      <div class="row">
+        <div>
+          <label for="bgImage">Upload da imagem</label>
+          <input id="bgImage" type="file" accept="image/*" />
+          <div class="subtle">Ajuste automático tipo “cover”. Clique no preview para baixar.</div>
+        </div>
+        <div>
+          <label for="bgOpacity">Opacidade da imagem</label>
+          <input id="bgOpacity" type="range" min="0" max="1" step="0.01" value="1" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="bgBlur">Blur da imagem</label>
+          <input id="bgBlur" type="range" min="0" max="30" step="1" value="0" />
+        </div>
+        <div>
+          <label for="overlayAlpha">Intensidade da camada (Multiply)</label>
+          <input id="overlayAlpha" type="range" min="0" max="1" step="0.01" value="0.25" />
+        </div>
+      </div>
+      <div>
+        <label for="overlayColor">Cor da camada</label>
+        <input id="overlayColor" type="color" value="#121212" />
+      </div>
+    </fieldset>
+
+    <label for="tema">Campo 1 – Tema <small id="temaCount" style="color:#777">(0/30)</small></label>
+    <input id="tema" type="text" value="Pergunte" maxlength="90" />
+
+    <label for="pergunta">Campo 2 – Pergunta <small id="pergCount" style="color:#777">(0/120)</small></label>
+    <input id="pergunta" type="text" value="Sua pergunta aqui?" maxlength="200" />
+
+    <label for="resposta">Campo 3 – Resposta</label>
+    <textarea id="resposta">Resposta aqui...</textarea>
+
+    <div class="row-3">
+      <div>
+        <label for="txtSize">Tamanho da resposta</label>
+        <input id="txtSize" type="range" min="28" max="64" value="44" />
+      </div>
+      <div>
+        <label for="lineHeight">Altura de linha</label>
+        <input id="lineHeight" type="range" min="1.2" max="1.9" step="0.05" value="1.35" />
+      </div>
+      <div>
+        <label for="stickerWidth">Largura da caixinha</label>
+        <input id="stickerWidth" type="range" min="620" max="980" value="840" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="safeMargin">Margem de segurança (texto)</label>
+        <input id="safeMargin" type="range" min="100" max="200" value="140" />
+      </div>
+      <div>
+        <label for="verticalBreath">Respiro vertical</label>
+        <input id="verticalBreath" type="range" min="140" max="240" value="180" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="fontFamily">Fonte da resposta</label>
+        <select id="fontFamily">
+          <option value="Georgia, 'Times New Roman', serif">Serif (clássica)</option>
+          <option value="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial" selected>Inter / System</option>
+        </select>
+      </div>
+      <div>
+        <label for="align">Alinhamento</label>
+        <select id="align">
+          <option value="center">Centralizado</option>
+          <option value="left" selected>Esquerda</option>
+          <option value="right">Direita</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn" id="downloadBtn" style="width:100%; margin-top:8px">Baixar PNG</button>
+  </section>
+
+  <section class="preview-wrap">
+    <div class="preview-area"><canvas id="canvas" class="preview"></canvas></div>
+  </section>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id)
+  const cvs = $('canvas'), ctx = cvs.getContext('2d')
+  const state = { W:1080, H:1920, dpr: Math.max(1, Math.floor(window.devicePixelRatio||1)), img:null }
+
+  // Init
+  setRatio('1080x1920'); draw()
+  window.addEventListener('resize', ()=>{ const dpr=Math.max(1,Math.floor(window.devicePixelRatio||1)); if(dpr!==state.dpr){state.dpr=dpr; resizeCanvas()} draw() })
+  $('controls').addEventListener('input', draw, {passive:true})
+  $('ratio').addEventListener('change', e=>{ setRatio(e.target.value); draw() })
+  $('downloadBtn').addEventListener('click', download)
+  cvs.addEventListener('click', download)
+
+  // BG image loader
+  $('bgImage').addEventListener('change', (e)=>{
+    const f = e.target.files && e.target.files[0]
+    if(!f) { state.img = null; draw(); return }
+    const reader = new FileReader()
+    reader.onload = (ev)=>{
+      const im = new Image()
+      im.onload = ()=>{ state.img = im; draw() }
+      im.src = ev.target.result
+    }
+    reader.readAsDataURL(f)
+  })
+
+  function setRatio(val){
+    if(val==='1080x1920'){ state.W=1080; state.H=1920; document.documentElement.style.setProperty('--ratio','1080 / 1920') }
+    else { state.W=1080; state.H=1350; document.documentElement.style.setProperty('--ratio','1080 / 1350') }
+    resizeCanvas()
+  }
+  function resizeCanvas(){
+    const {W,H,dpr}=state; cvs.width=W*dpr; cvs.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0)
+  }
+  function download(){
+    const a=document.createElement('a'); a.download='caixinha-'+$('ratio').value.replace('x','-')+'.png'; a.href=cvs.toDataURL('image/png'); a.click()
+  }
+
+  // ---------- Text helpers ----------
+  function setFont(size, fam, weight='600'){ ctx.font = weight+' '+size+'px '+fam }
+  function fitFontToMaxWord(size, fam, maxW, text){
+    let s = size, words = (text||'').replace(/\s+/g,' ').split(' ').filter(Boolean)
+    if(!words.length) return s
+    while(s>=18){
+      setFont(s, fam, '600')
+      let tooWide=false
+      for(const w of words){ if(ctx.measureText(w).width>maxW){ tooWide=true; break } }
+      if(!tooWide) break
+      s -= 1
+    }
+    return s
+  }
+  function wrapParagraphs(text, fam, size, maxW){
+    setFont(size, fam, '600')
+    const raw = (text||'').replace(/\r\n/g,'\n')
+    const paras = raw.split('\n') // preserva linhas vazias
+    const out = []
+    for(let i=0;i<paras.length;i++){
+      const line = paras[i]
+      if(line.trim()===''){ out.push(''); continue }
+      const words = line.replace(/\s+/g,' ').trim().split(' ')
+      let cur=''
+      for(const w of words){
+        const test = cur? cur+' '+w : w
+        if(ctx.measureText(test).width <= maxW){ cur=test }
+        else { if(cur) out.push(cur); cur=w }
+      }
+      if(cur) out.push(cur)
+    }
+    return out
+  }
+
+  // ---- Rounded path with per-corner radii (fix) ----
+  function roundedPath(x,y,w,h, r){
+    const tl=r.tl||0, tr=r.tr||0, br=r.br||0, bl=r.bl||0
+    ctx.beginPath()
+    ctx.moveTo(x+tl, y)
+    ctx.lineTo(x+w-tr, y)
+    ctx.quadraticCurveTo(x+w, y, x+w, y+tr)
+    ctx.lineTo(x+w, y+h-br)
+    ctx.quadraticCurveTo(x+w, y+h, x+w-br, y+h)
+    ctx.lineTo(x+bl, y+h)
+    ctx.quadraticCurveTo(x, y+h, x, y+h-bl)
+    ctx.lineTo(x, y+tl)
+    ctx.quadraticCurveTo(x, y, x+tl, y)
+    ctx.closePath()
+  }
+
+  function draw(){
+    const W=state.W, H=state.H
+    // = UI =
+    const temaLimit=30, pergLimit=120
+    const temaIn = $('tema').value||''
+    const pergIn = $('pergunta').value||''
+    $('temaCount').textContent = `(${temaIn.length}/${temaLimit})`
+    $('pergCount').textContent = `(${pergIn.length}/${pergLimit})`
+    const tema = (temaIn || 'Perguntas').slice(0,temaLimit)
+    const pergunta = (pergIn || ' ').slice(0,pergLimit)
+    const resposta = $('resposta').value || ''
+    const fam = $('fontFamily').value
+    const align = $('align').value
+    const baseSize = +$('txtSize').value
+    const lh = +$('lineHeight').value
+    const stickerW = +$('stickerWidth').value
+    const safeX = +$('safeMargin').value
+    const vertical = +$('verticalBreath').value
+    const bg = $('bgColor').value || '#000000'
+
+    // BG controls
+    const img = state.img
+    const bgOpacity = +$('bgOpacity').value
+    const bgBlur = +$('bgBlur').value
+    const overlayColor = $('overlayColor').value
+    const overlayAlpha = +$('overlayAlpha').value
+
+    // = Base =
+    ctx.clearRect(0,0,W,H); 
+    ctx.fillStyle=bg; ctx.fillRect(0,0,W,H)
+
+    // = Background image (cover) =
+    if(img){
+      const iw = img.naturalWidth, ih = img.naturalHeight
+      const scale = Math.max(W/iw, H/ih)
+      const dw = Math.ceil(iw*scale), dh = Math.ceil(ih*scale)
+      const dx = Math.floor((W - dw)/2), dy = Math.floor((H - dh)/2)
+      ctx.save()
+      ctx.globalAlpha = Math.min(1, Math.max(0, bgOpacity))
+      if(bgBlur>0){ ctx.filter = `blur(${bgBlur}px)` }
+      ctx.drawImage(img, dx, dy, dw, dh)
+      ctx.filter = 'none'
+      ctx.globalAlpha = 1
+      ctx.restore()
+    }
+
+    // = Overlay multiply =
+    if(overlayAlpha>0){
+      ctx.save()
+      ctx.globalCompositeOperation='multiply'
+      ctx.globalAlpha = Math.min(1, Math.max(0, overlayAlpha))
+      ctx.fillStyle = overlayColor
+      ctx.fillRect(0,0,W,H)
+      ctx.globalCompositeOperation='source-over'
+      ctx.globalAlpha = 1
+      ctx.restore()
+    }
+
+    const sw = Math.min(stickerW, W-120), sx = Math.round((W-sw)/2)
+    const headerH=120, qH=220, radius=36, qPadX=56, qMaxW=sw - qPadX*2
+    const topMargin=vertical, bottomMargin=Math.max(170, vertical+30)
+    const availH = H - topMargin - bottomMargin
+    const gap = 48
+    const maxTextW = W - safeX*2
+
+    // Pergunta
+    let qSize = fitFontToMaxWord(44, "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial", qMaxW, pergunta)
+    let qLines = wrapParagraphs(pergunta, "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial", qSize, qMaxW)
+    let qLH = Math.round(qSize*1.15)
+    let qHBlock = qLines.length*qLH
+    while(qHBlock > (qH-24) && qSize>18){
+      qSize--; qLines = wrapParagraphs(pergunta, "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial", qSize, qMaxW)
+      qLH = Math.round(qSize*1.15); qHBlock = qLines.length*qLH
+    }
+
+    // Resposta
+    let rSize = fitFontToMaxWord(baseSize, fam, maxTextW, resposta)
+    let rLines = wrapParagraphs(resposta, fam, rSize, maxTextW)
+    let rLH = Math.round(rSize*lh)
+    let rBlockH = rLines.length * rLH
+    const maxRespH = availH - (headerH + qH + gap)
+    while(rBlockH > maxRespH && rSize>18){
+      rSize--; rLines = wrapParagraphs(resposta, fam, rSize, maxTextW)
+      rLH = Math.round(rSize*lh); rBlockH = rLines.length*rLH
+    }
+
+    // Centralização vertical
+    const groupH = headerH + qH + gap + rBlockH
+    const sy = topMargin + Math.max(0, Math.floor((availH - groupH)/2))
+
+    // Sticker TOP (tl,tr radius; bottom sem raio)
+    ctx.fillStyle = getVar('--ig-sticker-top','#2c2c2e')
+    roundedPath(sx, sy, sw, headerH, {tl:radius,tr:radius,br:0,bl:0}); ctx.fill()
+
+    // Sticker BOTTOM (bl,br radius; topo reto)
+    ctx.fillStyle = getVar('--ig-sticker-bottom','#ffffff')
+    roundedPath(sx, sy+headerH, sw, qH, {tl:0,tr:0,br:radius,bl:radius}); ctx.fill()
+
+    // Título
+    ctx.fillStyle = getVar('--ig-sticker-text','#ffffff')
+    setFont(44, "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial", '700')
+    ctx.textAlign='center'; ctx.textBaseline='middle'
+    ctx.fillText(tema, sx+sw/2, sy+headerH/2)
+
+    // Pergunta
+    ctx.fillStyle = getVar('--ig-question-text','#2a2a2a')
+    setFont(qSize, "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial", '600')
+    ctx.textAlign='center'; ctx.textBaseline='top'
+    let qy = sy + headerH + Math.floor((qH - qHBlock)/2)
+    for(const l of qLines){ ctx.fillText(l, sx+sw/2, qy); qy += qLH }
+
+    // Resposta
+    ctx.fillStyle='#ffffff'
+    setFont(rSize, fam, '600')
+    ctx.textAlign = (align==='center'?'center':align==='right'?'right':'left')
+    ctx.textBaseline='alphabetic'
+    const rx = (align==='center'? W/2 : align==='right'? (W - safeX) : safeX)
+    let ry = sy + headerH + qH + gap
+    for(const l of rLines){
+      ry += rLH
+      if(l==='') continue
+      ctx.fillText(l, rx, ry)
+    }
+
+    function getVar(name, fallback){
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name)
+      return (v && v.trim()) || fallback
+    }
+  }
+
+})()
+</script>
+</body>
+</html>
